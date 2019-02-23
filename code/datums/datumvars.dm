@@ -1231,6 +1231,45 @@
 			message_admins("[key_name_admin(usr)] dealt [amount] amount of [Text] damage to [L]")
 			href_list["datumrefresh"] = href_list["mobToDamage"]
 
+	else if(href_list["givetrauma"])
+		if(!check_rights(NONE))
+			return
+
+		var/mob/living/carbon/C = locate(href_list["givetrauma"]) in GLOB.mob_list
+		if(!istype(C))
+			to_chat(usr, "This can only be done to instances of type /mob/living/carbon")
+			return
+
+		var/list/traumas = subtypesof(/datum/brain_trauma)
+		var/result = input(usr, "Choose the brain trauma to apply","Traumatize") as null|anything in traumas
+		if(!usr)
+			return
+		if(QDELETED(C))
+			to_chat(usr, "Mob doesn't exist anymore")
+			return
+
+		if(!result)
+			return
+
+		var/datum/brain_trauma/BT = C.gain_trauma(result)
+		if(BT)
+			log_admin("[key_name(usr)] has traumatized [key_name(C)] with [BT.name]")
+			message_admins("<span class='notice'>[key_name_admin(usr)] has traumatized [key_name_admin(C)] with [BT.name].</span>")
+
+	else if(href_list["curetraumas"])
+		if(!check_rights(NONE))
+			return
+
+		var/mob/living/carbon/C = locate(href_list["curetraumas"]) in GLOB.mob_list
+		if(!istype(C))
+			to_chat(usr, "This can only be done to instances of type /mob/living/carbon")
+			return
+
+		C.cure_all_traumas(TRAUMA_RESILIENCE_ABSOLUTE)
+		log_admin("[key_name(usr)] has cured all traumas from [key_name(C)].")
+		message_admins("<span class='notice'>[key_name_admin(usr)] has cured all traumas from [key_name_admin(C)].</span>")
+
+
 	if(href_list["datumrefresh"])
 		var/datum/DAT = locateUID(href_list["datumrefresh"])
 		if(!istype(DAT, /datum) && !isclient(DAT))

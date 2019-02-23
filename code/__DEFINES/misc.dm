@@ -395,3 +395,6 @@
 // Defib stats
 #define DEFIB_TIME_LIMIT 120
 #define DEFIB_TIME_LOSS 60
+
+//text files
+#define BRAIN_DAMAGE_FILE "traumas.json"

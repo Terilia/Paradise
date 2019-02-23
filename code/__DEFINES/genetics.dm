@@ -126,6 +126,9 @@
 #define CLONER_FRESH_CLONE "fresh"
 #define CLONER_MATURE_CLONE "mature"
 
+#define TRAUMA_TRAIT "trauma"
+
+
 //Species traits.
 
 #define IS_WHITELISTED 	1

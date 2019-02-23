@@ -23,6 +23,31 @@
 #define SPLINT_LIFE 2000 //number of steps splints stay on
 
 
+//Brain Damage defines
+#define BRAIN_DAMAGE_MILD 20
+#define BRAIN_DAMAGE_SEVERE 100
+#define BRAIN_DAMAGE_DEATH 200
+
+#define BRAIN_TRAUMA_MILD /datum/brain_trauma/mild
+#define BRAIN_TRAUMA_SEVERE /datum/brain_trauma/severe
+#define BRAIN_TRAUMA_MAGIC /datum/brain_trauma/magic
+
+#define TRAUMA_RESILIENCE_BASIC 1      //Curable with chems
+#define TRAUMA_RESILIENCE_SURGERY 2    //Curable with brain surgery
+#define TRAUMA_RESILIENCE_LOBOTOMY 3   //Curable with lobotomy
+#define TRAUMA_RESILIENCE_MAGIC 4      //Curable only with magic
+#define TRAUMA_RESILIENCE_ABSOLUTE 5   //This is here to stay
+
+//Limit of traumas for each resilience tier
+#define TRAUMA_LIMIT_BASIC 3
+#define TRAUMA_LIMIT_SURGERY 2
+#define TRAUMA_LIMIT_LOBOTOMY 3
+#define TRAUMA_LIMIT_MAGIC 3
+#define TRAUMA_LIMIT_ABSOLUTE INFINITY
+
+#define BRAIN_DAMAGE_INTEGRITY_MULTIPLIER 0.5
+
+
 //Pulse levels, very simplified
 #define PULSE_NONE		0	//so !M.pulse checks would be possible
 #define PULSE_SLOW		1	//<60 bpm
