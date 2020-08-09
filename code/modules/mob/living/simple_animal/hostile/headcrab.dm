@@ -1,8 +1,8 @@
-#define MODE_REST 1
-#define MODE_DEFENDING 2
-#define MODE_RETURNING 3
-#define MODE_NEWHOME 4
-#define MODE_RAMPAGE 5
+#define GONARCH_MODE_REST 1
+#define GONARCH_MODE_DEFENDING 2
+#define GONARCH_MODE_RETURNING 3
+#define GONARCH_MODE_NEWHOME 4
+#define GONARCH_MODE_RAMPAGE 5
 
 /mob/living/simple_animal/hostile/headcrab
 	name = "headcrab"
@@ -242,27 +242,33 @@
 	density = FALSE //Same as above.
 	//It has so many vars, to enable admins to change its behaviour on the fly. This is also the reason why its statemachine uses a lot of proc calls, so admins can call these manually.
 	can_zombify = FALSE
-	/// The vision and aggro range change - to force the beast to turn back into its nest. These are the values that it had before that and should be adjusted, if the original values are adjusted.
+	/// The Gonarch Standard Vision Range. As these are altered during the return state of the gonarch, a copy is saved here.
 	var/gonarch_standard_vision_range = 9
+	/// The Gonarch Aggro Vision Range. As these are altered during the return state of the gonarch, a copy is saved here.
 	var/gonarch_aggro_vision_range = 9
+	/// The Gonarch Standard Speed. As these are altered during the return state of the gonarch, a copy is saved here.
 	var/gonarch_standard_speed = 2
-	/// These are the home nest area, and the home nest turf of its home. It saves these, so it can return back to them. The Area is checked as well to avoid the Gonarch cyrcling about just one spot, but instead having more flexibility of taking a full area. Changing these will cause the gonarch to go to a different spot. If changed by hand on the server, change the turf first, then the area.
+	/// The home nest area is the whole area that the gonarch considers its nest. We save both the turf and the area, to allow the Gonarch to wander the area, rather than guarding a fixed spot.
 	var/area/home_nest_area
+	/// The home nest turf is the turf in an area that the Gonarch will walk back towards to find its nest.
 	var/turf/home_nest_turf
-	/// Homesick goes up when the Gonarch is not in its next. This is checked via an Area Check. If it is too high, it will cause the gonarch to go home. And if that turns too high (based on the rampage trigger below, it will cause the gonarch to scream, spawn 4 headcrabs and quickly seek a new home.)
+	/// Homesick goes up when the Gonarch is not in its next. This is checked via an Area Check. If it is too high, it will cause the gonarch to go home. And if that turns too high (based on the rampage trigger, it will cause the gonarch to scream, spawn 4 headcrabs and quickly seek a new home.)
 	var/homesick = 0
+	/// The Rampage trigger is the amount of homesick that the gonarch is willing to gather before it goes into the rampage state. Then it will use its stunning scream, spawn 4 headcrabs and quickly seek a new home
 	var/gonarch_rampage_trigger = 30
 	/// The current mode its statemachine is in. Currently it has: Rest, Defending, Returning and Newhome (Looking for a new home) as well as Rampage.
-	var/mode = MODE_REST
+	var/mode = GONARCH_MODE_REST
 	/// The Gonarch Children list is be used to see how many headcrabs it has born. - It will be created with LazyAdd later.
 	var/list/gonarch_children = null
 	/// The Maximum amount of Children that the Gonarch will create. It also checks if its babies died so ultimately will always produce headcrabs up to this number.
 	var/desired_child_count = 10
 	/// The world.time that it last succesfully created a headcrab on as well as the spawn frequency. These are currently set to 1 every minute.
 	var/time_last_babies = 0
+	/// The Spawn frequency of the headcrabs. Currently its set to 1 every minute.
 	var/gonarch_headcrab_spawn_frequency = 600
 	/// The Frustration goes up, if the Gonarch makes no progress getting to its home. If it reaches the limit designated it will start to destroy more, but also cause more homesick.
 	var/frustration = 0
+	/// The limit of frustration it accepts before starting to destroy more stuff around it.
 	var/frustration_limit = 3
 	/// The range in which it looks for a suitable nest.
 	var/gonarch_nestfind_range = 13
@@ -270,11 +276,15 @@
 	var/gonarch_screech_range = 8
 	/// This tracks how many times it looked for a new home, and sets a limit to its attempts. If this limit is reached, even rooms with light are now okay for the gonarch to use.
 	var/gonarch_finding_home_attempts = 0
+	/// The amount of attempts it is willing to look for a new home. If it reaches this number, the Gonarch will also consider areas with lights as its new breeding ground.
 	var/gonarch_finding_home_limit_attempts = 2
 	/// These are the soundlists of the gonarch. They are created null and will be filled when the gonarch is spawned to save memory and the hidden init proc.
 	var/list/gonarch_soundlist_rampage = null
+	/// These are the soundlists of the gonarch. They are created null and will be filled when the gonarch is spawned to save memory and the hidden init proc.
 	var/list/gonarch_soundlist_return = null
+	/// These are the soundlists of the gonarch. They are created null and will be filled when the gonarch is spawned to save memory and the hidden init proc.
 	var/list/gonarch_soundlist_initialise = null
+	/// These are the soundlists of the gonarch. They are created null and will be filled when the gonarch is spawned to save memory and the hidden init proc.
 	var/list/gonarch_soundlist_birth = null
 
 //For testing on a server without players/1 player, uncomment the following block
@@ -304,35 +314,35 @@
 		return
 
 	if(home_nest_area == get_area(src))
-		mode_switch(MODE_REST)
+		mode_switch(GONARCH_MODE_REST)
 	else
 		homesick++
 
 	//combat
-	if(target && target != home_nest_turf && mode != MODE_RAMPAGE && mode != MODE_RETURNING) //We do not have a fight while rampage is on or while we return to base.
+	if(target && target != home_nest_turf && mode != GONARCH_MODE_RAMPAGE && mode != GONARCH_MODE_RETURNING) //We do not have a fight while rampage is on or while we return to base.
 		//we are in combat now, guaranteed.
 		//Is our Homesick too high to go rampage and leave?
 		if(homesick >= gonarch_rampage_trigger)
-			mode_switch(MODE_RAMPAGE, gonarch_soundlist_rampage)
+			mode_switch(GONARCH_MODE_RAMPAGE, gonarch_soundlist_rampage)
 		else
-			mode_switch(MODE_DEFENDING)
+			mode_switch(GONARCH_MODE_DEFENDING)
 		return
 
 	//out of combat
-	if(homesick >= gonarch_rampage_trigger && mode != MODE_RAMPAGE)
-		mode_switch(MODE_RAMPAGE, gonarch_soundlist_rampage)
+	if(homesick >= gonarch_rampage_trigger && mode != GONARCH_MODE_RAMPAGE)
+		mode_switch(GONARCH_MODE_RAMPAGE, gonarch_soundlist_rampage)
 		return
 	switch(mode)
-		if(MODE_REST)		// idle
+		if(GONARCH_MODE_REST)		// idle
 			gonarch_rest()
-		if(MODE_RETURNING)		// returning home
+		if(GONARCH_MODE_RETURNING)		// returning home
 			gonarch_return()
-		if(MODE_NEWHOME)		// Seeking new home
+		if(GONARCH_MODE_NEWHOME)		// Seeking new home
 			gonarch_newhome()
-		if(MODE_RAMPAGE)		// Cannot find nest, frustration at max - rampage
+		if(GONARCH_MODE_RAMPAGE)		// Cannot find nest, frustration at max - rampage
 			gonarch_rampage()
-		if(MODE_DEFENDING) //If it goes down here, there is no target anymore. And it should return.
-			mode_switch(MODE_RETURNING, gonarch_soundlist_return)
+		if(GONARCH_MODE_DEFENDING) //If it goes down here, there is no target anymore. And it should return.
+			mode_switch(GONARCH_MODE_RETURNING, gonarch_soundlist_return)
 
 /mob/living/simple_animal/hostile/headcrab/gonarch/proc/mode_switch(mode_to_switch, sound_to_play)
 	if(mode_to_switch)
@@ -355,7 +365,7 @@
 		make_headcrabs() //Its its own proc, so they can be called by admins.
 	else
 		if(homesick >= 5)
-			mode_switch(MODE_RETURNING, gonarch_soundlist_return)
+			mode_switch(GONARCH_MODE_RETURNING, gonarch_soundlist_return)
 
 /mob/living/simple_animal/hostile/headcrab/gonarch/proc/gonarch_return()
 	speed = -1
@@ -390,7 +400,7 @@
 		return
 	home_nest_turf = pick(turfs)
 	home_nest_area = get_area(home_nest_turf)
-	mode_switch(MODE_RETURNING, gonarch_soundlist_return)
+	mode_switch(GONARCH_MODE_RETURNING, gonarch_soundlist_return)
 
 /mob/living/simple_animal/hostile/headcrab/gonarch/proc/gonarch_rampage()
 	//We want to lose all targets, and get the hell out of here. Vision/care is restored when back in base.
@@ -410,7 +420,7 @@
 		spawn_headcrabs(FALSE)
 	for(var/obj/structure/window/W in view(gonarch_screech_range))
 		W.deconstruct(FALSE)
-	mode_switch(MODE_NEWHOME, gonarch_soundlist_initialise)
+	mode_switch(GONARCH_MODE_NEWHOME, gonarch_soundlist_initialise)
 
 /mob/living/simple_animal/hostile/headcrab/gonarch/proc/spawn_headcrabs(spawn_as_children = TRUE)
 	var/list/spawn_types = list(/mob/living/simple_animal/hostile/headcrab, /mob/living/simple_animal/hostile/headcrab/fast, /mob/living/simple_animal/hostile/headcrab/poison)
@@ -438,8 +448,8 @@
 		if(C.status && prob(camera_chance))
 			C.toggle_cam(src, 0)
 
-#undef MODE_REST
-#undef MODE_DEFENDING
-#undef MODE_RETURNING
-#undef MODE_NEWHOME
-#undef MODE_RAMPAGE
+#undef GONARCH_MODE_REST
+#undef GONARCH_MODE_DEFENDING
+#undef GONARCH_MODE_RETURNING
+#undef GONARCH_MODE_NEWHOME
+#undef GONARCH_MODE_RAMPAGE
