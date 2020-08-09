@@ -286,9 +286,11 @@
 	var/list/gonarch_soundlist_initialise = null
 	/// These are the soundlists of the gonarch. They are created null and will be filled when the gonarch is spawned to save memory and the hidden init proc.
 	var/list/gonarch_soundlist_birth = null
+	/// These are the soundlists of the gonarch. They are created null and will be filled when the gonarch is spawned to save memory and the hidden init proc.
+	var/list/gonarch_soundlist_defend = null
 
 //For testing on a server without players/1 player, uncomment the following block
-/*
+
 /mob/living/simple_animal/hostile/headcrab/gonarch/consider_wakeup()
 	toggle_ai(AI_ON)
 
@@ -296,24 +298,25 @@
 /mob/living/simple_animal/hostile/headcrab/gonarch/AIShouldSleep(var/list/possible_targets)
     FindTarget(possible_targets, 1)
     return FALSE
-*/
+
 /mob/living/simple_animal/hostile/headcrab/gonarch/Initialize()
 	. = ..()
-	home_nest_area = get_area(src)
-	home_nest_turf = get_turf(src)
-	do_gonarch_screech(8, 100, 8, 100)
 	//Sound List Creation
 	gonarch_soundlist_rampage = list('sound/creatures/gonarch_rampage.ogg')
 	gonarch_soundlist_return = list('sound/creatures/gonarch_return.ogg')
 	gonarch_soundlist_initialise = list('sound/creatures/gonarch_initialise.ogg')
 	gonarch_soundlist_birth = list('sound/creatures/gonarch_birth1.ogg', 'sound/creatures/gonarch_birth2.ogg', 'sound/creatures/gonarch_birth3.ogg')
+	gonarch_soundlist_defend = list('sound/creatures/gonarch_defending.ogg')
+	home_nest_area = get_area(src)
+	home_nest_turf = get_turf(src)
+	do_gonarch_screech(8, 100, 8, 100)
 
 /mob/living/simple_animal/hostile/headcrab/gonarch/handle_automated_action()
 	. = ..()
 	if(!.)
 		return
 
-	if(home_nest_area == get_area(src))
+	if(home_nest_area == get_area(src) && mode != GONARCH_MODE_DEFENDING)
 		mode_switch(GONARCH_MODE_REST)
 	else
 		homesick++
@@ -325,7 +328,7 @@
 		if(homesick >= gonarch_rampage_trigger)
 			mode_switch(GONARCH_MODE_RAMPAGE, gonarch_soundlist_rampage)
 		else
-			mode_switch(GONARCH_MODE_DEFENDING)
+			mode_switch(GONARCH_MODE_DEFENDING, gonarch_soundlist_defend)
 		return
 
 	//out of combat
@@ -345,13 +348,11 @@
 			mode_switch(GONARCH_MODE_RETURNING, gonarch_soundlist_return)
 
 /mob/living/simple_animal/hostile/headcrab/gonarch/proc/mode_switch(mode_to_switch, sound_to_play)
-	if(mode_to_switch)
+	if(mode_to_switch && mode_to_switch != mode)
 		mode = mode_to_switch
 		if(sound_to_play)
 			var/sound_picked = pick(sound_to_play)
 			playsound(get_turf(src), sound_picked, 200, 1, 15, pressure_affected = FALSE)
-	else
-		stack_trace("[src] tried to switch to a NULL mode.")
 
 /mob/living/simple_animal/hostile/headcrab/gonarch/proc/gonarch_rest()
 	if(get_area(src) == home_nest_area) // If I am home & Everything is calm
