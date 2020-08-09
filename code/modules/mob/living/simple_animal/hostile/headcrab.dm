@@ -33,7 +33,7 @@
 
 /mob/living/simple_animal/hostile/headcrab/Life(seconds, times_fired)
 	if(..() && !stat)
-		if(!is_zombie && isturf(src.loc) && can_zombify)
+		if(!is_zombie && isturf(loc) && can_zombify)
 			for(var/mob/living/carbon/human/H in oview(src, 1)) //Only for corpse right next to/on same tile
 				if(H.stat == DEAD || (!H.check_death_method() && H.health <= HEALTH_THRESHOLD_DEAD))
 					Zombify(H)
@@ -238,32 +238,36 @@
 	environment_smash = ENVIRONMENT_SMASH_RWALLS
 	vision_range = 9
 	aggro_vision_range = 9
-	pass_flags = PASSTABLE | PASSMOB //It is so big, you can walk through its legs.
+	pass_flags = PASSTABLE|PASSMOB //It is so big, you can walk through its legs.
 	density = FALSE //Same as above.
 	//It has so many vars, to enable admins to change its behaviour on the fly. This is also the reason why its statemachine uses a lot of proc calls, so admins can call these manually.
 	can_zombify = FALSE
-	var/gonarch_standard_vision_range = 9
-	var/gonarch_aggro_vision_range = 9
-	var/gonarch_standard_speed = 2
-	var/area/home_nest_area
-	var/turf/home_nest_turf
-	var/homesick = 0
-	var/mode = MODE_REST
-	var/list/children = list()
-	var/desired_child_count = 10
-	var/time_last_babies = 0
-	var/list/path_to_home
-	var/frustration = 0
-	var/frustration_limit = 10
-	var/gonarch_nestfind_range = 8
-	var/gonarch_rampage_trigger = 30
-	var/gonarch_screech_range = 8
-	var/gonarch_finding_home_limit_attempts = 2
-	var/gonarch_finding_home_attempts = 0
-	var/gonarch_headcrab_spawn_frequency = 600
+	var/gonarch_standard_vision_range = 9 //The vision and aggro range change - to force the beast to turn back into its nest. These are the values that it had before that and should be adjusted, if the original values are adjusted.
+	var/gonarch_aggro_vision_range = 9 //See above
+	var/gonarch_standard_speed = 2 //See Above
+	var/area/home_nest_area //This is the area of its home. It also saves the area, so it won't circle around a turf but is able to guard its nest area.
+	var/turf/home_nest_turf //This is the turf in the area that it will go back to when it tries to return to its nest.
+	var/homesick = 0 //This value goes up when the Gonarch is not in its nest. If it is too high, it will cause it to rampage.
+	var/mode = MODE_REST //The current mode it is in. Currently it has: Rest, Defending, Returning, Newhome (Seeking a new home) and Rampage
+	var/list/gonarch_children = null //The list of its current headcrabs. - Will be created with LazyInitlist
+	var/desired_child_count = 10 //The maximum amount of alive headcrabs it is producing.
+	var/time_last_babies = 0 //The world.time that it last succesfully created a headcrab.
+	var/list/path_to_home //This stores its way back home.
+	var/frustration = 0 //This value increases when the Gonarch is unable to get closer to its current nest. If its at 10, it will start destroying things more actively in its surrounding
+	var/frustration_limit = 10 //This value determines the limit of frustration before the gonarch starts to destroy more
+	var/gonarch_nestfind_range = 8 //The range in which it looks for a nest around itself.
+	var/gonarch_rampage_trigger = 30 //How high should homesick go, before it triggers a rampage event.
+	var/gonarch_screech_range = 8 //The range in which its screech stuns people.
+	var/gonarch_finding_home_limit_attempts = 2 //How many times it can try to get home, before it starts to ignore if the area has light or not.
+	var/gonarch_finding_home_attempts = 0 //The current amount of attempts used to find a new home
+	var/gonarch_headcrab_spawn_frequency = 600 //The time between headcrab spawns in deciseconds.
+	var/list/gonarch_soundlist_rampage = null //These will be created on initialise to avoid the hidden ini proc
+	var/list/gonarch_soundlist_return = null 	//as abnove
+	var/list/gonarch_soundlist_initialise = null  //as above
+	var/list/gonarch_soundlist_birth = null  //as above
 
 //For testing on a server without players/1 player, uncomment the following block
-/*
+///*
 /mob/living/simple_animal/hostile/headcrab/gonarch/consider_wakeup()
 	toggle_ai(AI_ON)
 
@@ -271,12 +275,17 @@
 /mob/living/simple_animal/hostile/headcrab/gonarch/AIShouldSleep(var/list/possible_targets)
     FindTarget(possible_targets, 1)
     return FALSE
-*/
+//*/
 /mob/living/simple_animal/hostile/headcrab/gonarch/Initialize()
 	. = ..()
 	home_nest_area = get_area(src)
 	home_nest_turf = get_turf(src)
 	do_gonarch_screech(8, 100, 8, 100)
+	//Sound List Creation
+	gonarch_soundlist_rampage = list('sound/creatures/gonarch_rampage.ogg')
+	gonarch_soundlist_return = list('sound/creatures/gonarch_return.ogg')
+	gonarch_soundlist_initialise = list('sound/creatures/gonarch_initialise.ogg')
+	gonarch_soundlist_birth = list('sound/creatures/gonarch_birth1.ogg', 'sound/creatures/gonarch_birth2.ogg', 'sound/creatures/gonarch_birth3.ogg')
 
 /mob/living/simple_animal/hostile/headcrab/gonarch/handle_automated_action()
 	. = ..()
@@ -293,14 +302,14 @@
 		//we are in combat now, guaranteed.
 		//Is our Homesick too high to go rampage and leave?
 		if(homesick >= gonarch_rampage_trigger)
-			mode_switch(MODE_RAMPAGE, list('sound/creatures/gonarch_rampage.ogg'))
+			mode_switch(MODE_RAMPAGE, gonarch_soundlist_rampage)
 		else
 			mode_switch(MODE_DEFENDING)
 		return
 
 	//out of combat
 	if(homesick >= gonarch_rampage_trigger && mode != MODE_RAMPAGE)
-		mode_switch(MODE_RAMPAGE, list('sound/creatures/gonarch_rampage.ogg'))
+		mode_switch(MODE_RAMPAGE, gonarch_soundlist_rampage)
 		return
 	switch(mode)
 		if(MODE_REST)		// idle
@@ -312,14 +321,14 @@
 		if(MODE_RAMPAGE)		// Cannot find nest, frustration at max - rampage
 			gonarch_rampage()
 		if(MODE_DEFENDING) //If it goes down here, there is no target anymore. And it should return.
-			mode_switch(MODE_RETURNING, list('sound/creatures/gonarch_return.ogg'))
+			mode_switch(MODE_RETURNING, gonarch_soundlist_return)
 
 /mob/living/simple_animal/hostile/headcrab/gonarch/proc/mode_switch(mode_to_switch, sound_to_play)
 	if(mode_to_switch)
 		mode = mode_to_switch
 		if(sound_to_play)
 			var/sound_picked = pick(sound_to_play)
-			playsound(get_turf(src), sound_picked, 200, 1, 15, null, null, null, FALSE, TRUE)
+			playsound(get_turf(src), sound_picked, 200, 1, 15, pressure_affected = FALSE)
 	else
 		stack_trace("[src] tried to switch to a NULL mode.")
 
@@ -335,14 +344,14 @@
 		make_headcrabs() //Its its own proc, so they can be called by admins.
 	else
 		if(homesick >= 5)
-			mode_switch(MODE_RETURNING, list('sound/creatures/gonarch_return.ogg'))
+			mode_switch(MODE_RETURNING, gonarch_soundlist_return)
 
 /mob/living/simple_animal/hostile/headcrab/gonarch/proc/gonarch_return()
 	speed = -1
 	var/turf/olddist = get_dist(src, home_nest_turf)
 	step_towards(src, home_nest_turf, speed)
 	target = home_nest_turf
-	if((get_dist(src, target)) >= (olddist))
+	if(get_dist(src, target) >= olddist)
 		frustration++
 		if(frustration > frustration_limit)
 			DestroyPathToTarget()
@@ -351,9 +360,10 @@
 		frustration = 0
 
 /mob/living/simple_animal/hostile/headcrab/gonarch/proc/gonarch_newhome()
-	var/list/turfs = new/list()
+	var/list/turfs = list()
+	var/list/turfs_in_range = range(src, 4)
 	for(var/turf/T in range(src, gonarch_nestfind_range))
-		if(T in range(src, 4))
+		if(T in turfs_in_range)
 			continue
 		if(istype(T, /turf/space))
 			continue
@@ -369,7 +379,7 @@
 		return
 	home_nest_turf = pick(turfs)
 	home_nest_area = get_area(home_nest_turf)
-	mode_switch(MODE_RETURNING, list('sound/creatures/gonarch_return.ogg'))
+	mode_switch(MODE_RETURNING, gonarch_soundlist_return)
 
 /mob/living/simple_animal/hostile/headcrab/gonarch/proc/gonarch_rampage()
 	//We want to lose all targets, and get the hell out of here. Vision/care is restored when back in base.
@@ -389,28 +399,27 @@
 		spawn_headcrabs(FALSE)
 	for(var/obj/structure/window/W in view(gonarch_screech_range))
 		W.deconstruct(FALSE)
-	mode_switch(MODE_NEWHOME, 'sound/creatures/gonarch_initialise.ogg')
+	mode_switch(MODE_NEWHOME, gonarch_soundlist_initialise)
 
 /mob/living/simple_animal/hostile/headcrab/gonarch/proc/spawn_headcrabs(spawn_as_children = TRUE)
 	var/list/spawn_types = list(/mob/living/simple_animal/hostile/headcrab, /mob/living/simple_animal/hostile/headcrab/fast, /mob/living/simple_animal/hostile/headcrab/poison)
 	var/type_to_spawn = pick(spawn_types)
 	var/mob/living/simple_animal/hostile/headcrab/B = new type_to_spawn(get_turf(src))
-	var/list/birth_sounds = list('sound/creatures/gonarch_birth1.ogg', 'sound/creatures/gonarch_birth2.ogg', 'sound/creatures/gonarch_birth3.ogg')
-	var/chosen_sound = pick(birth_sounds)
-	playsound(get_turf(src), chosen_sound, 200, 1, 8)
+	var/chosen_sound = pick(gonarch_soundlist_birth)
+	playsound(src, chosen_sound, 200, TRUE, 8)
 	if(spawn_as_children)
-		children += B
+		LAZYADD(gonarch_children, B)
 		time_last_babies = world.time
 		visible_message("<span class='warning'>[B] crawls out of [src]!</span>")
 
 /mob/living/simple_animal/hostile/headcrab/gonarch/proc/make_headcrabs()
-	listclearnulls(children)
-	if(world.time > time_last_babies + gonarch_headcrab_spawn_frequency && length(children) < desired_child_count)
+	listclearnulls(gonarch_children)
+	if(world.time > time_last_babies + gonarch_headcrab_spawn_frequency && length(gonarch_children) < desired_child_count)
 		spawn_headcrabs()
 
 
 /mob/living/simple_animal/hostile/headcrab/gonarch/proc/do_gonarch_screech(light_range, light_chance, camera_range, camera_chance)
-	playsound(get_turf(src), 'sound/creatures/gonarch_initialise.ogg', 200, 1, 15, null, null, null, FALSE, TRUE)
+	playsound(get_turf(src), gonarch_soundlist_initialise, 200, 1, 15, pressure_affected = FALSE)
 	for(var/obj/machinery/light/L in range(light_range, src))
 		if(L.on && prob(light_chance))
 			L.break_light_tube()
