@@ -242,32 +242,43 @@
 	density = FALSE //Same as above.
 	//It has so many vars, to enable admins to change its behaviour on the fly. This is also the reason why its statemachine uses a lot of proc calls, so admins can call these manually.
 	can_zombify = FALSE
-	var/gonarch_standard_vision_range = 9 //The vision and aggro range change - to force the beast to turn back into its nest. These are the values that it had before that and should be adjusted, if the original values are adjusted.
-	var/gonarch_aggro_vision_range = 9 //See above
-	var/gonarch_standard_speed = 2 //See Above
-	var/area/home_nest_area //This is the area of its home. It also saves the area, so it won't circle around a turf but is able to guard its nest area.
-	var/turf/home_nest_turf //This is the turf in the area that it will go back to when it tries to return to its nest.
-	var/homesick = 0 //This value goes up when the Gonarch is not in its nest. If it is too high, it will cause it to rampage.
-	var/mode = MODE_REST //The current mode it is in. Currently it has: Rest, Defending, Returning, Newhome (Seeking a new home) and Rampage
-	var/list/gonarch_children = null //The list of its current headcrabs. - Will be created with LazyInitlist
-	var/desired_child_count = 10 //The maximum amount of alive headcrabs it is producing.
-	var/time_last_babies = 0 //The world.time that it last succesfully created a headcrab.
-	var/list/path_to_home //This stores its way back home.
-	var/frustration = 0 //This value increases when the Gonarch is unable to get closer to its current nest. If its at 10, it will start destroying things more actively in its surrounding
-	var/frustration_limit = 10 //This value determines the limit of frustration before the gonarch starts to destroy more
-	var/gonarch_nestfind_range = 8 //The range in which it looks for a nest around itself.
-	var/gonarch_rampage_trigger = 30 //How high should homesick go, before it triggers a rampage event.
-	var/gonarch_screech_range = 8 //The range in which its screech stuns people.
-	var/gonarch_finding_home_limit_attempts = 2 //How many times it can try to get home, before it starts to ignore if the area has light or not.
-	var/gonarch_finding_home_attempts = 0 //The current amount of attempts used to find a new home
-	var/gonarch_headcrab_spawn_frequency = 600 //The time between headcrab spawns in deciseconds.
-	var/list/gonarch_soundlist_rampage = null //These will be created on initialise to avoid the hidden ini proc
-	var/list/gonarch_soundlist_return = null 	//as abnove
-	var/list/gonarch_soundlist_initialise = null  //as above
-	var/list/gonarch_soundlist_birth = null  //as above
+	/// The vision and aggro range change - to force the beast to turn back into its nest. These are the values that it had before that and should be adjusted, if the original values are adjusted.
+	var/gonarch_standard_vision_range = 9
+	var/gonarch_aggro_vision_range = 9
+	var/gonarch_standard_speed = 2
+	/// These are the home nest area, and the home nest turf of its home. It saves these, so it can return back to them. The Area is checked as well to avoid the Gonarch cyrcling about just one spot, but instead having more flexibility of taking a full area. Changing these will cause the gonarch to go to a different spot. If changed by hand on the server, change the turf first, then the area.
+	var/area/home_nest_area
+	var/turf/home_nest_turf
+	/// Homesick goes up when the Gonarch is not in its next. This is checked via an Area Check. If it is too high, it will cause the gonarch to go home. And if that turns too high (based on the rampage trigger below, it will cause the gonarch to scream, spawn 4 headcrabs and quickly seek a new home.)
+	var/homesick = 0
+	var/gonarch_rampage_trigger = 30
+	/// The current mode its statemachine is in. Currently it has: Rest, Defending, Returning and Newhome (Looking for a new home) as well as Rampage.
+	var/mode = MODE_REST
+	/// The Gonarch Children list is be used to see how many headcrabs it has born. - It will be created with LazyAdd later.
+	var/list/gonarch_children = null
+	/// The Maximum amount of Children that the Gonarch will create. It also checks if its babies died so ultimately will always produce headcrabs up to this number.
+	var/desired_child_count = 10
+	/// The world.time that it last succesfully created a headcrab on as well as the spawn frequency. These are currently set to 1 every minute.
+	var/time_last_babies = 0
+	var/gonarch_headcrab_spawn_frequency = 600
+	/// The Frustration goes up, if the Gonarch makes no progress getting to its home. If it reaches the limit designated it will start to destroy more, but also cause more homesick.
+	var/frustration = 0
+	var/frustration_limit = 3
+	/// The range in which it looks for a suitable nest.
+	var/gonarch_nestfind_range = 13
+	/// The Screeching Range defines until what range carbons are effected by its stunning screen.
+	var/gonarch_screech_range = 8
+	/// This tracks how many times it looked for a new home, and sets a limit to its attempts. If this limit is reached, even rooms with light are now okay for the gonarch to use.
+	var/gonarch_finding_home_attempts = 0
+	var/gonarch_finding_home_limit_attempts = 2
+	/// These are the soundlists of the gonarch. They are created null and will be filled when the gonarch is spawned to save memory and the hidden init proc.
+	var/list/gonarch_soundlist_rampage = null
+	var/list/gonarch_soundlist_return = null
+	var/list/gonarch_soundlist_initialise = null
+	var/list/gonarch_soundlist_birth = null
 
 //For testing on a server without players/1 player, uncomment the following block
-///*
+/*
 /mob/living/simple_animal/hostile/headcrab/gonarch/consider_wakeup()
 	toggle_ai(AI_ON)
 
@@ -275,7 +286,7 @@
 /mob/living/simple_animal/hostile/headcrab/gonarch/AIShouldSleep(var/list/possible_targets)
     FindTarget(possible_targets, 1)
     return FALSE
-//*/
+*/
 /mob/living/simple_animal/hostile/headcrab/gonarch/Initialize()
 	. = ..()
 	home_nest_area = get_area(src)
