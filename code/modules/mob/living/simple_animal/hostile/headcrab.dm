@@ -430,7 +430,7 @@
 
 
 /mob/living/simple_animal/hostile/headcrab/gonarch/proc/do_gonarch_screech(light_range, light_chance, camera_range, camera_chance)
-	playsound(get_turf(src), gonarch_soundlist_initialise, 200, 1, 15, pressure_affected = FALSE)
+	playsound(get_turf(src), gonarch_soundlist_initialise, 200, TRUE, 15, pressure_affected = FALSE)
 	for(var/obj/machinery/light/L in range(light_range, src))
 		if(L.on && prob(light_chance))
 			L.break_light_tube()
